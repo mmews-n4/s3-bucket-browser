@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>S3 Bucket Listing</title>
+
+  <link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/themes/default/style.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.2.1/jstree.min.js"></script>
+</head>
+
+<body>
+  <div id="jstree_div"></div>
+  <script>
+    const regexMatchLastSegement = /(?!\/)[^\/]*(?=\/?$)/;
+    const thisFileName = window.location.pathname.match(regexMatchLastSegement);
+
+    function getPrettySize(size) {
+      let magnitude = Math.floor(Math.log(size) / Math.log(1024));
+      var unit = "Byte";
+      switch (magnitude) {
+        case 1: unit = "KB"; break;
+        case 2: unit = "MB"; break;
+        case 3: unit = "GB"; break;
+      }
+      let resized = Math.round(size / Math.pow(1024, magnitude));
+      let result = resized + unit;
+      return result;
+    }
+    function createFileNode(completeURL, size, lastmodified) {
+      let name = completeURL.match(regexMatchLastSegement);
+      let tooltip = getPrettySize(size) + ' ' + lastmodified;
+      let icon = getNodeIcon(completeURL);
+      let node = {
+        "id": completeURL,
+        "text": name,
+        "icon": icon,
+        "state": {
+            "opened": false,
+            "disabled": false,
+            "loaded": true
+        },
+        "a_attr": {
+          "href": completeURL,
+          "title": tooltip
+        }
+      };
+      return node;
+    };
+    function createDirectoryNode(completeURL) {
+      let text = completeURL.match(regexMatchLastSegement);
+      let node = {
+        "id": completeURL,
+        "text": text,
+        "icon": "fa fa-folder-open-o",
+        "state": {
+            "opened": false,
+            "disabled": false,
+            "loaded": false
+        },
+        "a_attr": null,
+        "children": true
+      };
+      return node;
+    };
+    function getNodeIcon(completeURL) {
+      let extensionMatches = completeURL.match(/\.[^\.\/]*$/);
+      let extension = (extensionMatches && extensionMatches[0])? extensionMatches[0] : ""; 
+      switch (extension) {
+        case ".zip":
+          return "fa fa-file-archive-o";
+        case ".pdf":
+          return "fa fa-file-pdf-o";
+      }
+      return "fa fa-file-o";
+    }
+
+
+    let jstree_div = $('#jstree_div');
+    jstree_div.jstree({
+        'core': {
+            'data': (obj, cb) => {
+              loadTreeNodes(obj, cb)
+            }
+        },
+        "search": {
+            "case_insensitive": true,
+            "show_only_matches" : true
+        },
+        "plugins": ["search"]
+    })
+    .bind("select_node.jstree", function (e, data) {
+      var href = data.node.a_attr.href;
+      if(href == '#') {
+        return '';
+      }
+
+      window.open(href);
+    });
+
+
+    async function loadTreeNodes(obj, cb) {
+      let locationToLoad = obj.id == "#" ? window.location.href : obj.id;
+      let nodes = await loadChildren(locationToLoad);
+      cb.call(this, nodes);  
+    };
+
+
+    async function loadChildren(parentURL) {
+      let parser = document.createElement('a');
+      parser.href = parentURL;
+      let indexHtml = "/index.html";
+      let host = parser.hostname;
+      let bucket = host.split('.')[0];
+      let pathname = parser.pathname.replace(/index\.html/g, '').replace(/^\//, '');
+      let urlSuffix = '.s3.amazonaws.com';
+      let urlNoSlash = 'https://' + bucket + urlSuffix;
+      let url = urlNoSlash + '/';
+      let delimiter = 'delimiter=/';
+      let prefixValue = pathname;
+      let prefix = 'prefix=' + prefixValue;
+      let query = urlNoSlash + '?' + delimiter + '&' + prefix;
+
+      let allChildren = new Array();
+
+      let fetchResult = await fetch(query);
+      let text = await fetchResult.text();
+      let oParser = new DOMParser();
+      let oDOM = oParser.parseFromString(text, "text/xml");
+
+      var containsDirectoryLATEST = false;
+
+      oDOM.childNodes.forEach((value, index, listObj) => {
+        value.childNodes.forEach((value1, index1, listObj1) => {
+          value1.childNodes.forEach((value2, index2, listObj2) => {
+            let completeFileName = value2.textContent;
+            let completeURL = url + completeFileName;
+
+            if (value2.localName === 'Prefix') {
+                allChildren.push(createDirectoryNode(completeURL));
+                if (completeFileName.endsWith('/LATEST/')) {
+                  containsDirectoryLATEST = true;
+                }
+            }
+            if (value2.localName === 'Key' && completeFileName != prefixValue) {
+              if (!completeFileName.endsWith(thisFileName)) {
+                let siblings = [...value2.parentNode.children];
+                let sizeNode = siblings.find((node) => { return node.localName == "Size"; });
+                let lastmodifiedNode = siblings.find((node) => { return node.localName == "LastModified"; });
+                let size = sizeNode && sizeNode.textContent;
+                let lastmodified = lastmodifiedNode && lastmodifiedNode.textContent;
+                allChildren.push(createFileNode(completeURL, size, lastmodified));
+              }
+            }
+          })
+        })
+      });
+
+      allChildren.sort();
+      if (containsDirectoryLATEST) {
+        allChildren.reverse();
+      }
+      return allChildren;
+    };
+  </script>
+</body>
+</html>
