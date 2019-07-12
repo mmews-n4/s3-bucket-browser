@@ -10,24 +10,28 @@ File size and last modification time are displayed as tool tip text when hoverin
 
 == Usage
 
-Place the `index.html` into the folder which you like to be the root folder of the navigation tree.
+Place the `index.html` into the S3 folder which you like to be the root folder of the navigation tree.
 Set access permissions of that root folder in S3 Management Console (see below).
 Test it by browsing to the `index.html`:
-The URL should be like `BUCKET_NAME.s3.amazonaws.com/[PATH/]index.html`.
+The URL should be like `www.BUCKET_NAME.s3.amazonaws.com/[PATH/]index.html`.
 
 
 == AWS S3 Permissions
 
 There are different ways of granting access to S3 Bucket.
-First in the S3 Management console, navigate to your S3 Bucket root.
-Click on _Permissions_ and chose _Bucket Policy_.
-In the editor below, create two new entries: first to give read access for downloading files, second to give list permissinos to read the directory structure of the bucket.
+The one described here uses bucket policies.
+In the S3 Management console, navigate to your S3 Bucket root, click on _Permissions_ and chose _Bucket Policy_.
+In the editor below, create two new entries:
+ first to give read access for downloading files,
+ and second to give list permissinos to read the directory structure of the bucket.
 The example below shows these two entries.
 Mind that you would need to replace the placeholders `BUCKET_NAME` and `PATH` appropriately.
+In the screenshot above, the bucket name is `n4-cd-n4ide-storage` and the path is `products/`.
 
 
-.Settings in Bucket policy editor
-```json
+.Settings in _Bucket policy editor_
+[source,json]
+----
 {
     "Version": "2012-10-17",
     "Id": "SomePolicyID",
@@ -55,4 +59,4 @@ Mind that you would need to replace the placeholders `BUCKET_NAME` and `PATH` ap
         }
     ]
 }
-```
+----
