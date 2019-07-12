@@ -1,6 +1,6 @@
 = Browse Contents of AWS S3 Buckets
 
-image::screenshot.png["Browse contents of AWS S3 Buckets"]
+image::screenshot.png["Browse contents of AWS S3 Buckets", width="50%"]
 
 This is a stand-alone `index.html` file that enables browsing of S3-Buckets of AWS using a navigation tree (jsTree).
 Precondition is that the S3 Bucket is accessable.
